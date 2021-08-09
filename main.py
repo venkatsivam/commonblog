@@ -3,10 +3,11 @@ import sqlite3
 from datetime import *
 import json
 import cryptocode
+import sys
 
 app = Flask(__name__)
 app.secret_key = '1a2b3c4d5e'
-import sys
+
 
 
 @app.route("/")
@@ -59,16 +60,30 @@ def usersignin():
             cur = con.cursor()
             cur.execute('SELECT * FROM user WHERE username = ? AND password = ?', (username, password))
             result = cur.fetchone()
+            session['id'] =result[0]
+            session['username'] =result[1]
+            session['email']=result[2]
+
             if result:
                 author = result[0]
                 with sqlite3.connect("blog.db") as con:
                     con.row_factory = sqlite3.Row
                     cur = con.cursor()
                     blog_list = cur.execute(
-                        '''SELECT b.id, b.name, b.content,b.author,count(c.comment) as totalcomments from blog as b LEFT JOIN comment as c on b.id = c.blog WHERE author=? group by b.id ''',
+                        ''' SELECT b.id, b.name, b.content,b.author,count(c.comment) as totalcomments, 
+                            SUM(CASE WHEN r.like_or_not = 1 THEN 1 ELSE 0 END) as like, 
+                            SUM(CASE WHEN r.like_or_not = 0 THEN 1 ELSE 0 END) as dislike from blog as b 
+                            LEFT JOIN comment as c on b.id = c.blog
+                            LEFT JOIN  response as r on b.id=r.blog
+                            WHERE b.author = ? group by b.id''',
                         [session['id']]).fetchall()
                     all_blog_list = cur.execute(
-                        '''SELECT b.id, b.name, b.content,b.author,count(c.comment) as totalcomments from blog as b LEFT JOIN comment as c on b.id = c.blog  WHERE author!=? group by b.id''',
+                        '''  SELECT b.id, b.name, b.content,b.author,count(c.comment) as totalcomments, 
+                            SUM(CASE WHEN r.like_or_not = 1 THEN 1 ELSE 0 END) as like, 
+                            SUM(CASE WHEN r.like_or_not = 0 THEN 1 ELSE 0 END) as dislike from blog as b 
+                            LEFT JOIN comment as c on b.id = c.blog
+                            LEFT JOIN  response as r on b.id=r.blog
+                            WHERE b.author != ? group by b.id ''',
                         [session['id']]).fetchall()
                     session['loggedin'] = True
                     session['id'] = result[0]
@@ -104,9 +119,22 @@ def postblog():
                 cur = con.cursor()
                 # blog_list = cur.execute('''SELECT * FROM blog WHERE author=?''', [session['id']]).fetchall()
                 blog_list = cur.execute(
-                    '''SELECT b.id, b.name, b.content,b.author,count(c.comment) as totalcomments from blog as b LEFT JOIN comment as c on b.id = c.blog WHERE author=? group by b.id ''',
+                    ''' SELECT b.id, b.name, b.content,b.author,count(c.comment) as totalcomments, 
+                        SUM(CASE WHEN r.like_or_not = 1 THEN 1 ELSE 0 END) as like, 
+                        SUM(CASE WHEN r.like_or_not = 0 THEN 1 ELSE 0 END) as dislike from blog as b 
+                        LEFT JOIN comment as c on b.id = c.blog
+                        LEFT JOIN  response as r on b.id=r.blog
+                        WHERE b.author=? group by b.id''',
                     [session['id']]).fetchall()
-                return render_template("home.html", bloglist=blog_list)
+                all_blog_list = cur.execute(
+                    '''  SELECT b.id, b.name, b.content,b.author,count(c.comment) as totalcomments, 
+                        SUM(CASE WHEN r.like_or_not = 1 THEN 1 ELSE 0 END) as like, 
+                        SUM(CASE WHEN r.like_or_not = 0 THEN 1 ELSE 0 END) as dislike from blog as b 
+                        LEFT JOIN comment as c on b.id = c.blog
+                        LEFT JOIN  response as r on b.id=r.blog
+                        WHERE b.author!=? group by b.id ''',
+                    [session['id']]).fetchall()
+                return render_template("home.html", bloglist=blog_list, all_blogs=all_blog_list)
 
 
 @app.route("/readblog/<id>")
@@ -114,7 +142,7 @@ def readblog(id=0):
     with sqlite3.connect("blog.db") as con:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        view_blog = cur.execute('''SELECT * FROM blog WHERE id=?''', id).fetchone()
+        view_blog = cur.execute('''SELECT * FROM blog WHERE id=? ''', [id]).fetchone()
         return render_template("viewblog.html", content=view_blog)
 
 
@@ -123,10 +151,10 @@ def commentblog(id=0):
     with sqlite3.connect("blog.db") as con:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        recent_comments = cur.execute('''SELECT * FROM comment WHERE blog=? ORDER BY created_date DESC''',id).fetchall()
+        recent_comments = cur.execute('''SELECT * FROM comment WHERE blog=? ORDER BY created_date DESC''',[id]).fetchall()
         # print(recent_comments)
         # sys.exit()
-    return render_template("comment.html", recent_comments=recent_comments)
+    return render_template("comment.html", recent_comments=recent_comments, id=id)
 
 
 @app.route("/comment", methods=["POST"])
@@ -145,15 +173,24 @@ def comment():
             cur = con.cursor()
             cur.execute("INSERT INTO comment(blog, user,comment,created_date,modified_date) values(?,?,?,?,?)",
                         (blogid, userid, comment, created_date, modified_date))
-            blog_info = cur.execute(
-                '''SELECT b.id, b.name, b.content,b.author,count(c.comment) as totalcomments from blog as b LEFT JOIN comment as c on b.id = c.blog WHERE author=? group by b.id ''',
+            blog_list = cur.execute(
+                ''' SELECT b.id, b.name, b.content,b.author,count(c.comment) as totalcomments, 
+                    SUM(CASE WHEN r.like_or_not = 1 THEN 1 ELSE 0 END) as like, 
+                    SUM(CASE WHEN r.like_or_not = 0 THEN 1 ELSE 0 END) as dislike from blog as b 
+                    LEFT JOIN comment as c on b.id = c.blog
+                    LEFT JOIN  response as r on b.id=r.blog
+                    WHERE b.author=? group by b.id''',
+                [session['id']]).fetchall()
+            all_blog_list = cur.execute(
+                '''  SELECT b.id, b.name, b.content,b.author,count(c.comment) as totalcomments, 
+                    SUM(CASE WHEN r.like_or_not = 1 THEN 1 ELSE 0 END) as like, 
+                    SUM(CASE WHEN r.like_or_not = 0 THEN 1 ELSE 0 END) as dislike from blog as b 
+                    LEFT JOIN comment as c on b.id = c.blog
+                    LEFT JOIN  response as r on b.id=r.blog
+                    WHERE b.author!=? group by b.id ''',
                 [session['id']]).fetchall()
 
-            all_blog_info = cur.execute(
-                '''SELECT b.id, b.name, b.content,b.author,count(c.comment) as totalcomments from blog as b LEFT JOIN comment as c on b.id = c.blog  WHERE author!=? group by b.id''',
-                [session['id']]).fetchall()
-
-            return render_template("home.html", bloglist=blog_info, all_blogs=all_blog_info)
+            return render_template("home.html", bloglist=blog_list, all_blogs=all_blog_list)
 
 @app.route("/like_or_dislike", methods=["POST"])
 def like_or_dislike():
@@ -182,6 +219,13 @@ def like_or_dislike():
         # count_str=str(count)
         return jsonify(count=count)
         # sys.exit()
+
+@app.route('/logout')
+def logout():
+    session.pop('id',None)
+    session.pop('username', None)
+    session.pop('email', None)
+    return redirect(url_for('index'))
 
 
 if __name__ == "__main__":
