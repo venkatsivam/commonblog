@@ -120,7 +120,13 @@ def readblog(id=0):
 
 @app.route("/commentblog/<id>")
 def commentblog(id=0):
-    return render_template("comment.html", id=id)
+    with sqlite3.connect("blog.db") as con:
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        recent_comments = cur.execute('''SELECT * FROM comment WHERE blog=? ORDER BY created_date DESC''',id).fetchall()
+        # print(recent_comments)
+        # sys.exit()
+    return render_template("comment.html", recent_comments=recent_comments)
 
 
 @app.route("/comment", methods=["POST"])
@@ -164,12 +170,12 @@ def like_or_dislike():
             if action=="like":
                 cur.execute("INSERT INTO response(blog, user,like_or_not,response_date) values(?,?,?,?)",
                             (blog_id,user,1,action_date))
-                count=cur.execute('''SELECT count(like_or_not) as like_dislike_count FROM response WHERE like_or_not=? AND blog=?''',[a],[blog_id]).fetchall()
+                count=cur.execute('''SELECT count(like_or_not) as like_dislike_count FROM response WHERE like_or_not=? AND blog=?''',[a,blog_id]).fetchall()
                 # print(count)
             else:
                 cur.execute("INSERT INTO response(blog, user,like_or_not, response_date) values(?,?,?,?)",
                             (blog_id,user,0,action_date))
-                count=cur.execute('''SELECT count(like_or_not) as like_dislike_count FROM response WHERE like_or_not=? AND blog=?''',[b], [blog_id]).fetchall()
+                count=cur.execute('''SELECT count(like_or_not) as like_dislike_count FROM response WHERE like_or_not=? AND blog=?''',[b,blog_id]).fetchall()
                 # print(count)
         # for c in count:
         #     print(str(c))

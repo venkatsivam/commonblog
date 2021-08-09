@@ -12,21 +12,34 @@
     <div>
         <form class="margin-t" action="/comment" method="post">
             <input type="hidden" name="blogid" value={{id}}>
-        <div class="container-content">
-            <div class="form-group">
-                <label for="exampleFormControlTextarea1">Comment Here</label>
-                <textarea class="form-control" name="comment" id="Comment Here" rows="3"></textarea>
+            <div class="container-content">
+                <div class="form-group">
+                    <label for="exampleFormControlTextarea1">Comment Here</label>
+                    <textarea class="form-control" name="comment" id="Comment Here" rows="3"></textarea>
+                </div>
             </div>
-        </div>
-        <br/>
-        <div class="row">
-            <div>
-                <button type="submit" class="btn btn-primary m-2">submit</button>
-                <button type="button" class="btn btn-secondary">Cancel</button>
+            <br/>
+            <div class="row">
+                <div>
+                    <button type="submit" class="btn btn-primary m-2">submit</button>
+
+                </div>
             </div>
-        </div>
-    </form>
+        </form>
     </div>
+    <br/>
+
+    <h4>Recent comments</h4>
+    <br/>
+    {% for row in recent_comments %}
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">{{row["comment"]}}</h5>
+            <p class="card-text">{{row["created_date"]}}</p>
+        </div>
+    </div>
+    <br/>
+    {% endfor %}
 </div>
 </body>
 </html>

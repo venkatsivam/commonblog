@@ -44,9 +44,9 @@
                 </div>
                 <div class="card-footer text-muted">
                     <button onclick="myFunction({{row['id']}},'like')" style="font-size:24px"><i
-                            class="fa fa-thumbs-up"></i></button>
+                            class="fa fa-thumbs-up"></i><span class="like_{{row['id']}}"></span></button>
                     <button onclick="myFunction({{row['id']}},'dislike')" style="font-size:24px"><i
-                            class="fa fa-thumbs-down"></i></button>
+                            class="fa fa-thumbs-down"></i><span class="dislike_{{row['id']}}"></span></button>
                     <a href="/commentblog/{{row['id']}}">
                         <button style="font-size:24px"><i class="fa fa-comment"></i>({{row["totalcomments"]}})</button>
                     </a>
@@ -100,7 +100,11 @@
                     'id':blog_id,'action': action
                 },
                 success: function(response){debugger
-<!--                    $('#like-section').html(response['form'])-->
+                    if(action == 'like'){
+                        $('.like_'+blog_id).html(response.count)
+                    }else{
+                         $('.dislike_'+blog_id).html(response.count)
+                    }
                 },
             })
 
